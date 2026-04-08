@@ -19,7 +19,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "baseUrl": "./",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "ignoreDeprecations": "6.0",
     "paths": {
       "@src/*": ["./src/*"],
@@ -34,7 +34,8 @@
   },
   "include": [
     "./src/**/*.ts",
-    "./test/**/*.ts"
+    "./test/**/*.ts",
+    "./test/**/*.d.ts"
   ],
   "exclude": [
     "./node_modules/*",
