@@ -1,4 +1,5 @@
-import { AxiosStatic } from "axios";
+import { InternalError } from "@src/util/errors/internal-error";
+import { AxiosError, AxiosStatic } from "axios";
 
 export interface StormGlassPointSource {
   [key: string]: number; 
@@ -30,6 +31,19 @@ export interface ForecastPoint {
     windSpeed: number;
 }
 
+export class ClientRequestError extends InternalError {
+    constructor(message: string) {
+        const internalMessage = 'Unexpected error when trying to comunicate to StormGlass';
+        super(`${internalMessage}: ${message}`);
+    }
+}
+
+export class StormGlassResponseError extends InternalError {
+    constructor(message: string) {
+        const internalErrorMessage = 'Unexpected error returned by the StormGlass service';
+        super(`${internalErrorMessage}: ${message}`);
+    }
+}
 
 export class StormGlass {
     readonly stormGlassAPIParams =
@@ -39,6 +53,7 @@ export class StormGlass {
     constructor(protected request: AxiosStatic ) {}
 
     public async fetchPoints(lat: number, lng: number): Promise<ForecastPoint[]> {
+     try {
         const response = await this.request.get<StormGlassForecastResponse>(
             `https://api.stormglass.io/v2/weather/point?params=${this.stormGlassAPIParams}&source=${this.stormGlassAPISource}&end=1592113802&lat=${lat}&lng=${lng}`,
         {
@@ -48,8 +63,22 @@ export class StormGlass {
     }
 );
         return this.normalizeResponse(response.data);
-   } 
-   private normalizeResponse(points: StormGlassForecastResponse): ForecastPoint[] {
+        } catch (err) {
+            const axiosError = err as AxiosError;
+            if (axiosError.response && axiosError.response.status) {
+                throw new StormGlassResponseError(
+                    `Error: ${JSON.stringify(axiosError.response.data)} Code: ${axiosError.response.status}`
+                );
+            }
+          const message =
+            err instanceof Error
+              ? err.message
+              : (err as { message?: string })?.message ?? String(err);
+          throw new ClientRequestError(message);
+        }
+    } 
+  
+    private normalizeResponse(points: StormGlassForecastResponse): ForecastPoint[] {
     return points.hours.filter(this.isValidPoint.bind(this)).map((point) => ({
         time: point.time,
         waveHeight: point.waveHeight?.[this.stormGlassAPISource],
